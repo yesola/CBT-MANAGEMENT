@@ -11,14 +11,49 @@ import { View, Trainee, TrainingLogEntry, CompetencyEvaluation } from './types';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
-  const [trainees, setTrainees] = useState<Trainee[]>(MOCK_TRAINEES);
-  const [history, setHistory] = useState<TrainingLogEntry[]>(MOCK_HISTORY);
-  const [evaluations, setEvaluations] = useState<CompetencyEvaluation[]>(MOCK_EVALUATIONS);
-  const [currentView, setCurrentView] = useState<View>('trainees');
-  const [selectedTraineeId, setSelectedTraineeId] = useState<string>(trainees[0].id);
+  const [trainees, setTrainees] = useState<Trainee[]>(() => {
+    const saved = localStorage.getItem('trainees');
+    return saved ? JSON.parse(saved) : MOCK_TRAINEES;
+  });
+  const [history, setHistory] = useState<TrainingLogEntry[]>(() => {
+    const saved = localStorage.getItem('history');
+    return saved ? JSON.parse(saved) : MOCK_HISTORY;
+  });
+  const [evaluations, setEvaluations] = useState<CompetencyEvaluation[]>(() => {
+    const saved = localStorage.getItem('evaluations');
+    return saved ? JSON.parse(saved) : MOCK_EVALUATIONS;
+  });
+  const [currentView, setCurrentView] = useState<View>(() => {
+    const saved = localStorage.getItem('currentView');
+    return (saved as View) || 'trainees';
+  });
+  const [selectedTraineeId, setSelectedTraineeId] = useState<string>(() => {
+    const saved = localStorage.getItem('selectedTraineeId');
+    return saved || (trainees.length > 0 ? trainees[0].id : '');
+  });
   const [viewingEvaluation, setViewingEvaluation] = useState<CompetencyEvaluation | null>(null);
   const [evaluationDraft, setEvaluationDraft] = useState<any>(null);
   const mainRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    localStorage.setItem('trainees', JSON.stringify(trainees));
+  }, [trainees]);
+
+  useEffect(() => {
+    localStorage.setItem('history', JSON.stringify(history));
+  }, [history]);
+
+  useEffect(() => {
+    localStorage.setItem('evaluations', JSON.stringify(evaluations));
+  }, [evaluations]);
+
+  useEffect(() => {
+    localStorage.setItem('currentView', currentView);
+  }, [currentView]);
+
+  useEffect(() => {
+    localStorage.setItem('selectedTraineeId', selectedTraineeId);
+  }, [selectedTraineeId]);
 
   useEffect(() => {
     if (mainRef.current) {
@@ -37,7 +72,7 @@ export default function App() {
   const handleAddTrainee = (newTraineeData: Omit<Trainee, 'id' | 'avatar' | 'progress' | 'status' | 'lastSession'>) => {
     const newTrainee: Trainee = {
       ...newTraineeData,
-      id: (trainees.length + 1).toString(),
+      id: `t-${Date.now()}`,
       avatar: `https://images.unsplash.com/photo-${1500000000000 + Math.floor(Math.random() * 1000000)}?auto=format&fit=crop&q=80&w=150`,
       progress: 0,
       status: 'active',
@@ -52,7 +87,7 @@ export default function App() {
   const handleAddLog = (newLog: Omit<TrainingLogEntry, 'id'>) => {
     const log: TrainingLogEntry = {
       ...newLog,
-      id: `h${history.length + 1}`
+      id: `h-${Date.now()}`
     };
     setHistory([log, ...history]);
   };
@@ -68,7 +103,7 @@ export default function App() {
   const handleAddEvaluation = (newEval: Omit<CompetencyEvaluation, 'id'>) => {
     const evaluation: CompetencyEvaluation = {
       ...newEval,
-      id: `e${evaluations.length + 1}`
+      id: `e-${Date.now()}`
     };
     setEvaluations([evaluation, ...evaluations]);
     setCurrentView('dashboard');
