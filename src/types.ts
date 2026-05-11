@@ -38,18 +38,17 @@ export interface CompetencyEvaluation {
   result: 'pass' | 'fail' | 'marginal' | 'satisfactory' | 'unsatisfactory';
   category: string;
   details: string;
-  // Metrics for radar chart (Unit Skill Breakdown)
-  atm: number;
-  comm: number;
-  tech: number;
-  nav: number;
-  ops: number;
-  // Metrics for progress bars (Competency Profile)
+  // Metrics for radar chart (6 core competencies)
   situationalAwareness: number;
+  trafficManagement: number;
+  separationConflict: number;
   communication: number;
+  cooperation: number;
+  selfManagement: number;
+  // Metrics for progress bars (if needed, keeping them or reusing)
   proceduralAccuracy: number;
   stressManagement: number;
-  cooperation: number;
+  rawRatings?: Record<number, number>;
 }
 
 export interface Stat {
@@ -57,4 +56,14 @@ export interface Stat {
   value: string | number;
   change: string;
   trend: 'up' | 'down' | 'neutral';
+}
+
+export interface ArchiveDocument {
+  id: string;
+  title: string;
+  uploadDate: string;
+  instructor: string;
+  sector: string;
+  thumbnail: string;
+  type: string;
 }

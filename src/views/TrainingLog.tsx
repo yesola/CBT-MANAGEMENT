@@ -10,7 +10,9 @@ import {
   ChevronRight,
   CheckCircle2,
   X,
-  User
+  User,
+  Edit,
+  Trash2
 } from 'lucide-react';
 import { SECTORS } from '../constants';
 import { cn } from '../lib/utils';
@@ -20,13 +22,24 @@ interface TrainingLogProps {
   trainee: Trainee;
   history: TrainingLogEntry[];
   onAddLog: (log: Omit<TrainingLogEntry, 'id'>) => void;
+  onUpdateLog: (id: string, log: Omit<TrainingLogEntry, 'id'>) => void;
+  onDeleteLog: (id: string) => void;
 }
 
-export const TrainingLog: React.FC<TrainingLogProps> = ({ trainee, history: allHistory, onAddLog }) => {
+export const TrainingLog: React.FC<TrainingLogProps> = ({ 
+  trainee, 
+  history: allHistory, 
+  onAddLog,
+  onUpdateLog,
+  onDeleteLog
+}) => {
   // Assume we are viewing the records of the selected trainee
-  const history = allHistory.filter(h => h.traineeId === trainee.id);
+  const history = allHistory.filter(h => h.traineeId === trainee.id)
+    .sort((a, b) => b.date.localeCompare(a.date));
 
   const [showEntryForm, setShowEntryForm] = useState(false);
+  const [editingLogId, setEditingLogId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   
   // Form State
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -45,26 +58,64 @@ export const TrainingLog: React.FC<TrainingLogProps> = ({ trainee, history: allH
     const end = new Date(`2000-01-01T${endTime}`);
     const duration = (end.getTime() - start.getTime()) / (1000 * 60);
 
+    const logData = {
+      traineeId: trainee.id,
+      date,
+      startTime,
+      endTime,
+      duration,
+      station,
+      instructor,
+      topic: '현장 업무 실습',
+      category: '현장 업무 훈련 (OJT)',
+      remarks,
+      comments: '훈련 세션 기록됨',
+      rating: 4
+    };
+
     setTimeout(() => {
-      onAddLog({
-        traineeId: trainee.id,
-        date,
-        startTime,
-        endTime,
-        duration,
-        station,
-        instructor,
-        topic: '현장 업무 실습',
-        category: '현장 업무 훈련 (OJT)',
-        remarks,
-        comments: '훈련 세션 기록됨',
-        rating: 4
-      });
+      if (editingLogId) {
+        onUpdateLog(editingLogId, logData);
+        alert('훈련 세션이 성공적으로 수정되었습니다!');
+      } else {
+        onAddLog(logData);
+        alert('훈련 세션이 성공적으로 기록되었습니다!');
+      }
       setIsSubmitting(false);
       setShowEntryForm(false);
+      setEditingLogId(null);
       setRemarks('');
-      alert('훈련 세션이 성공적으로 기록되었습니다!');
     }, 800);
+  };
+
+  const handleEdit = (log: TrainingLogEntry) => {
+    setEditingLogId(log.id);
+    setDate(log.date);
+    setStartTime(log.startTime);
+    setEndTime(log.endTime);
+    setStation(log.station);
+    setInstructor(log.instructor);
+    setRemarks(log.remarks || '');
+    setShowEntryForm(true);
+  };
+
+  const handleAddNew = () => {
+    setEditingLogId(null);
+    setDate(new Date().toISOString().split('T')[0]);
+    setStartTime('09:00');
+    setEndTime('11:30');
+    setStation('APP E');
+    setInstructor('Kim, M.');
+    setRemarks('');
+    setShowEntryForm(true);
+  };
+
+  const confirmDelete = () => {
+    if (deleteConfirmId) {
+      onDeleteLog(deleteConfirmId);
+      setDeleteConfirmId(null);
+      alert('훈련 기록이 삭제되었습니다.');
+    }
   };
 
   // Sector definitions with targets
@@ -102,7 +153,7 @@ export const TrainingLog: React.FC<TrainingLogProps> = ({ trainee, history: allH
           <p className="text-slate-500 mt-1">일일 현장 업무 훈련 시간을 기록하고 검토합니다.</p>
         </div>
         <button 
-          onClick={() => setShowEntryForm(true)}
+          onClick={handleAddNew}
           className="bg-[#0e5c8e] hover:bg-[#0a4a75] text-white px-6 py-3 rounded-lg font-bold text-sm shadow-sm flex items-center gap-2 transition-all active:scale-95 shrink-0"
         >
           <Plus className="w-5 h-5" />
@@ -159,6 +210,7 @@ export const TrainingLog: React.FC<TrainingLogProps> = ({ trainee, history: allH
                     <th className="px-5 py-4 text-[11px] font-bold text-slate-700 uppercase tracking-tight">근무석</th>
                     <th className="px-5 py-4 text-[11px] font-bold text-slate-700 uppercase tracking-tight">교관</th>
                     <th className="px-5 py-4 text-[11px] font-bold text-slate-700 uppercase tracking-tight">비고</th>
+                    <th className="px-5 py-4 text-[11px] font-bold text-slate-700 uppercase tracking-tight text-right">관리</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-nowrap">
@@ -175,6 +227,24 @@ export const TrainingLog: React.FC<TrainingLogProps> = ({ trainee, history: allH
                       </td>
                       <td className="px-5 py-4 text-sm text-slate-600">{log.instructor}</td>
                       <td className="px-5 py-4 text-sm text-slate-500 italic max-w-[200px] truncate">{log.remarks || '-'}</td>
+                      <td className="px-5 py-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button 
+                            onClick={() => handleEdit(log)}
+                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all"
+                            title="수정"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => setDeleteConfirmId(log.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-all"
+                            title="삭제"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -262,7 +332,7 @@ export const TrainingLog: React.FC<TrainingLogProps> = ({ trainee, history: allH
                   <div className="p-1.5 bg-[#0e5c8e] rounded-lg">
                     <Plus className="w-4 h-4 text-white" />
                   </div>
-                  <h4 className="font-bold text-slate-900">신규 훈련 기록</h4>
+                  <h4 className="font-bold text-slate-900">{editingLogId ? '훈련 기록 수정' : '신규 훈련 기록'}</h4>
                 </div>
                 <button onClick={() => setShowEntryForm(false)} className="text-slate-400 hover:text-slate-600 p-1">
                   <X className="w-5 h-5" />
@@ -273,13 +343,16 @@ export const TrainingLog: React.FC<TrainingLogProps> = ({ trainee, history: allH
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-500 uppercase">훈련 날짜</label>
-                    <input 
-                      type="date" 
-                      required
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 font-semibold"
-                    />
+                    <div className="relative">
+                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      <input 
+                        type="date" 
+                        required
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 font-semibold"
+                      />
+                    </div>
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-500 uppercase">근무석 (Station)</label>
@@ -301,7 +374,7 @@ export const TrainingLog: React.FC<TrainingLogProps> = ({ trainee, history: allH
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-500 uppercase">시작 시간</label>
                     <div className="relative">
-                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                       <input 
                         type="time" 
                         required
@@ -314,7 +387,7 @@ export const TrainingLog: React.FC<TrainingLogProps> = ({ trainee, history: allH
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-500 uppercase">종료 시간</label>
                     <div className="relative">
-                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                       <input 
                         type="time" 
                         required
@@ -368,6 +441,44 @@ export const TrainingLog: React.FC<TrainingLogProps> = ({ trainee, history: allH
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {deleteConfirmId && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden border border-slate-200"
+            >
+              <div className="p-8 text-center">
+                <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Trash2 className="w-8 h-8 text-rose-500" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-900">기록 삭제</h3>
+                <p className="text-sm text-slate-500 mt-2">
+                  정말로 이 훈련 기록을 삭제하시겠습니까?<br />삭제된 데이터는 복구할 수 없습니다.
+                </p>
+              </div>
+              <div className="p-6 bg-slate-50 flex gap-3">
+                <button 
+                  onClick={() => setDeleteConfirmId(null)}
+                  className="flex-1 px-4 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition-all"
+                >
+                  취소
+                </button>
+                <button 
+                  onClick={confirmDelete}
+                  className="flex-1 px-4 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-lg shadow-rose-200 transition-all active:scale-95"
+                >
+                  삭제
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

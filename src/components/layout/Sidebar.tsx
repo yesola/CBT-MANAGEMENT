@@ -4,8 +4,8 @@ import {
   Users, 
   BookOpen, 
   ClipboardCheck, 
-  Archive, 
   Settings,
+  Archive,
   Plane
 } from 'lucide-react';
 import { View, Trainee } from '../../types';
@@ -22,7 +22,7 @@ const navItems = [
   { id: 'dashboard', label: '대시보드', icon: LayoutDashboard },
   { id: 'logs', label: '훈련 기록', icon: BookOpen },
   { id: 'evaluation', label: '역량 평가', icon: ClipboardCheck },
-  { id: 'archive', label: '아카이브', icon: Archive },
+  { id: 'archive', label: '자료실', icon: Archive },
   { id: 'settings', label: '설정', icon: Settings },
 ] as const;
 
@@ -34,7 +34,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, activeTr
           <Plane className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h1 className="text-sm font-bold text-slate-800 tracking-tight leading-none">서울 APP/ARR</h1>
+          <h1 className="text-sm font-bold text-slate-800 tracking-tight leading-none">Seoul Approach</h1>
           <p className="text-[10px] text-slate-500 font-medium mt-1">CBT 관리 시스템</p>
         </div>
       </div>

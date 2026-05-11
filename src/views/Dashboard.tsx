@@ -8,7 +8,11 @@ import {
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer,
-  LabelList
+  LabelList,
+  Radar,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis
 } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -20,11 +24,18 @@ import {
   PlusCircle,
   X,
   User,
-  Info
+  Info,
+  CheckCircle2,
+  Download,
+  Eye,
+  FileText,
+  Shield,
+  Edit,
+  Trash2
 } from 'lucide-react';
 import { SECTORS, PROFILE_AVATARS } from '../constants';
 import { cn } from '../lib/utils';
-import { Trainee, TrainingLogEntry } from '../types';
+import { Trainee, TrainingLogEntry, CompetencyEvaluation } from '../types';
 
 const SECTOR_COLORS: Record<string, string> = {
   'APP E': '#3b82f6', // blue
@@ -41,16 +52,37 @@ interface DashboardProps {
   trainee: Trainee;
   trainees: Trainee[];
   history: TrainingLogEntry[];
+  evaluations: CompetencyEvaluation[];
   onSelectTrainee: (id: string) => void;
   onAddLog: (log: Omit<TrainingLogEntry, 'id'>) => void;
+  onUpdateLog: (id: string, log: Omit<TrainingLogEntry, 'id'>) => void;
+  onDeleteLog: (id: string) => void;
   onUpdateTrainee: (id: string, updatedInfo: Partial<Trainee>) => void;
+  onViewEvaluation?: (evaluation: CompetencyEvaluation) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ trainee, trainees, history: allHistory, onSelectTrainee, onAddLog, onUpdateTrainee }) => {
-  const history = allHistory.filter(h => h.traineeId === trainee.id);
+export const Dashboard: React.FC<DashboardProps> = ({ 
+  trainee, 
+  trainees, 
+  history: allHistory, 
+  evaluations: allEvaluations,
+  onSelectTrainee, 
+  onAddLog, 
+  onUpdateLog,
+  onDeleteLog,
+  onUpdateTrainee,
+  onViewEvaluation
+}) => {
+  const history = allHistory.filter(h => h.traineeId === trainee.id)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const evaluations = [...allEvaluations]
+    .filter(e => e.traineeId === trainee.id)
+    .sort((a, b) => b.date.localeCompare(a.date));
   
   const [showLogModal, setShowLogModal] = useState(false);
+  const [editingLogId, setEditingLogId] = useState<string | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [formData, setFormData] = useState({
@@ -156,6 +188,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ trainee, trainees, history
     ? ((latestHours - previousHours) / previousHours) * 100 
     : (latestHours > 0 ? 100 : 0);
 
+  const latestEval = evaluations[0];
+  
+  const radarData = latestEval ? [
+    { subject: '상황인식', A: latestEval.situationalAwareness },
+    { subject: '교통상황관리', A: latestEval.trafficManagement },
+    { subject: '분리/충돌해결', A: latestEval.separationConflict },
+    { subject: '의사소통', A: latestEval.communication },
+    { subject: '협조', A: latestEval.cooperation },
+    { subject: '자기관리', A: latestEval.selfManagement },
+  ] : [];
+
   const stats = [
     { label: '섹터별 시간 현황', value: `${overallProgress.toFixed(1)}%`, icon: Target, color: 'text-blue-500', bg: 'bg-blue-50', subValue: `${totalHours.toFixed(1)} / ${sectorProgress.reduce((acc, curr) => acc + curr.required, 0)} 시간` },
     { label: '월간 평균 시간', value: `${avgMonthlyHours.toFixed(1)} 시간`, icon: TrendingUp, color: 'text-amber-500', bg: 'bg-amber-50' },
@@ -188,7 +231,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ trainee, trainees, history
     const duration = (end.getTime() - start.getTime()) / (1000 * 60);
 
     setTimeout(() => {
-      onAddLog({
+      const logData = {
         traineeId: trainee.id,
         date: formData.date,
         startTime: formData.startTime,
@@ -200,9 +243,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ trainee, trainees, history
         remarks: formData.remarks,
         comments: '성공적으로 세션을 마침',
         rating: 4
-      });
+      };
+
+      if (editingLogId) {
+        onUpdateLog(editingLogId, logData);
+        alert('훈련 기록이 성공적으로 수정되었습니다!');
+      } else {
+        onAddLog(logData);
+        alert('훈련 기록이 성공적으로 추가되었습니다!');
+      }
+      
       setIsSubmitting(false);
       setShowLogModal(false);
+      setEditingLogId(null);
       setFormData({
         date: new Date().toISOString().split('T')[0],
         startTime: '09:00',
@@ -212,7 +265,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ trainee, trainees, history
         topic: '',
         remarks: '',
       });
-      alert('훈련 기록이 성공적으로 추가되었습니다!');
     }, 600);
   };
 
@@ -254,7 +306,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ trainee, trainees, history
 
         <div className="flex flex-wrap gap-3">
           <button 
-            onClick={() => setShowLogModal(true)}
+            onClick={() => {
+              setEditingLogId(null);
+              setShowLogModal(true);
+            }}
             className="bg-[#0f172a] hover:bg-slate-800 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg flex items-center gap-2 transition-all active:scale-95 group"
           >
             <PlusCircle className="w-5 h-5 group-hover:scale-110 transition-transform" />
@@ -455,16 +510,188 @@ export const Dashboard: React.FC<DashboardProps> = ({ trainee, trainees, history
             </div>
             <div className="space-y-4">
               {history.slice(0, 3).map(log => (
-                <div key={log.id} className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                <div key={log.id} className="p-4 bg-slate-50 rounded-xl border border-slate-100 group relative">
                   <div className="flex justify-between items-start mb-2">
                     <span className="text-xs font-bold text-slate-900">{log.date}</span>
                     <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">{log.station}</span>
                   </div>
                   <p className="text-sm font-semibold text-slate-700">{log.topic}</p>
                   <p className="text-xs text-slate-400 mt-1">Instructor: {log.instructor}</p>
+                  
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={() => {
+                        setEditingLogId(log.id);
+                        setFormData({
+                          date: log.date,
+                          startTime: log.startTime,
+                          endTime: log.endTime,
+                          station: log.station,
+                          instructor: log.instructor,
+                          topic: log.topic,
+                          remarks: log.remarks || '',
+                        });
+                        setShowLogModal(true);
+                      }}
+                      className="p-1.5 bg-white border border-slate-200 rounded-lg text-slate-400 hover:text-blue-600 shadow-sm"
+                      title="수정"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                    </button>
+                    <button 
+                      onClick={() => setDeleteConfirmId(log.id)}
+                      className="p-1.5 bg-white border border-slate-200 rounded-lg text-slate-400 hover:text-rose-600 shadow-sm"
+                      title="삭제"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Competency & Evaluation Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Radar Chart Box */}
+        <div className="lg:col-span-7 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex justify-between items-center mb-8">
+            <h3 className="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
+              <Shield className="w-6 h-6 text-blue-600" />
+              핵심 역량 분석
+            </h3>
+            {latestEval && (
+              <span className="text-xs font-bold text-slate-400">최근 평가: {latestEval.date}</span>
+            )}
+          </div>
+          
+          <div className="h-[400px] w-full">
+            {latestEval ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
+                  <PolarGrid stroke="#e2e8f0" />
+                  <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }} />
+                  <Radar
+                    name="Proficiency"
+                    dataKey="A"
+                    stroke="#2563eb"
+                    fill="#3b82f6"
+                    fillOpacity={0.15}
+                    strokeWidth={3}
+                  />
+                  <Tooltip 
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="bg-white p-2 rounded-lg border border-slate-100 shadow-lg text-[11px] font-bold">
+                            {payload[0].payload.subject}: {payload[0].value}%
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                </RadarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-4">
+                <FileText className="w-12 h-12 opacity-20" />
+                <p className="text-sm font-medium">등록된 역량 평가 데이터가 없습니다.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Instructor Notes Box */}
+        <div className="lg:col-span-5 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+          <h3 className="text-xl font-bold text-slate-800 tracking-tight mb-8">종합 교관 의견</h3>
+          <div className="flex-1 overflow-y-auto space-y-4 max-h-[400px] pr-2 custom-scrollbar">
+            {evaluations.length > 0 ? (
+              evaluations.map((ev, idx) => (
+                <div key={ev.id} className={cn(
+                  "p-5 rounded-2xl border transition-all",
+                  idx === 0 ? "bg-blue-50/50 border-blue-100" : "bg-slate-50 border-slate-100"
+                )}>
+                  <div className="flex justify-between items-start mb-3">
+                    <span className="text-xs font-black text-slate-900">{ev.date}</span>
+                    <span className="text-[10px] font-bold text-slate-400">교관: {ev.evaluator}</span>
+                  </div>
+                  <p className="text-sm text-slate-600 leading-relaxed italic">
+                    "{ev.details || '의견이 작성되지 않았습니다.'}"
+                  </p>
+                </div>
+              ))
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-3 italic">
+                <Info className="w-8 h-8 opacity-20" />
+                <p className="text-xs font-medium">작성된 교관 의견이 없습니다.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Evaluation History Table */}
+        <div className="lg:col-span-12 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+            <h3 className="text-xl font-bold text-slate-800 tracking-tight">역량 평가 이력</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-slate-50/80 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                  <th className="px-8 py-4">평가 일자</th>
+                  <th className="px-8 py-4">평가 구분</th>
+                  <th className="px-8 py-4 text-center">종합 점수</th>
+                  <th className="px-8 py-4 text-center">결과</th>
+                  <th className="px-8 py-4">평가자</th>
+                  <th className="px-8 py-4 text-right">상세보기</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {evaluations.map((ev) => (
+                  <tr key={ev.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-8 py-6 text-sm font-bold text-slate-600">{ev.date}</td>
+                    <td className="px-8 py-6 text-sm font-black text-slate-900">{ev.category}</td>
+                    <td className="px-8 py-6 text-center">
+                      <div className="inline-block px-3 py-1 rounded-lg bg-slate-900 text-white font-black text-xs">
+                        {typeof ev.score === 'number' ? ev.score.toFixed(1) : ev.score}
+                      </div>
+                    </td>
+                    <td className="px-8 py-6 text-center">
+                      <span className={cn(
+                        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold",
+                        ev.result === 'satisfactory' ? "bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200" :
+                        ev.result === 'marginal' ? "bg-blue-50 text-blue-600 ring-1 ring-blue-200" :
+                        "bg-rose-50 text-rose-600 ring-1 ring-rose-200"
+                      )}>
+                        {ev.result === 'satisfactory' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                        {ev.result === 'satisfactory' ? '만족' : ev.result === '부분' ? '부분' : '부족'}
+                      </span>
+                    </td>
+                    <td className="px-8 py-6 text-sm font-bold text-slate-600">{ev.evaluator}</td>
+                    <td className="px-8 py-6 text-right">
+                      <div className="flex justify-end gap-3">
+                        <button 
+                          onClick={() => onViewEvaluation?.(ev)}
+                          className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-900 transition-all"
+                        >
+                          <Eye className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {evaluations.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-8 py-12 text-center text-slate-400 font-medium text-sm">
+                      평가 이력이 존재하지 않습니다.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -558,7 +785,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ trainee, trainees, history
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">훈련 시작일</label>
                   <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                     <input 
                       type="date" 
                       required
@@ -572,7 +799,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ trainee, trainees, history
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">생년월일</label>
                   <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                     <input 
                       type="date" 
                       required
@@ -643,8 +870,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ trainee, trainees, history
                     <PlusCircle className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h4 className="text-xl font-bold text-slate-900">신규 훈련 기록 추가</h4>
-                    <p className="text-xs text-slate-500 font-medium">훈련생: {trainee.name}</p>
+                    <h4 className="text-xl font-bold text-slate-900">{editingLogId ? '훈련 기록 수정' : '훈련 기록 추가'}</h4>
+                    <p className="text-xs text-slate-500 font-medium">{editingLogId ? '기존 기록을 수정합니다.' : `훈련생: ${trainee.name}`}</p>
                   </div>
                 </div>
                 <button 
@@ -660,7 +887,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ trainee, trainees, history
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">훈련 날짜</label>
                     <div className="relative">
-                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                       <input 
                         type="date" 
                         required
@@ -690,7 +917,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ trainee, trainees, history
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">시작 시간</label>
                     <div className="relative">
-                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                       <input 
                         type="time" 
                         required
@@ -703,7 +930,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ trainee, trainees, history
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">종료 시간</label>
                     <div className="relative">
-                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                       <input 
                         type="time" 
                         required
@@ -764,11 +991,54 @@ export const Dashboard: React.FC<DashboardProps> = ({ trainee, trainees, history
                     {isSubmitting ? (
                       <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     ) : (
-                      <>저장하기</>
+                      <>{editingLogId ? '수정 완료' : '저장하기'}</>
                     )}
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {deleteConfirmId && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden border border-slate-200"
+            >
+              <div className="p-8 text-center">
+                <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Trash2 className="w-8 h-8 text-rose-500" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-900">기록 삭제</h3>
+                <p className="text-sm text-slate-500 mt-2">
+                  정말로 이 훈련 기록을 삭제하시겠습니까?<br />삭제된 데이터는 복구할 수 없습니다.
+                </p>
+              </div>
+              <div className="p-6 bg-slate-50 flex gap-3">
+                <button 
+                  onClick={() => setDeleteConfirmId(null)}
+                  className="flex-1 px-4 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition-all"
+                >
+                  취소
+                </button>
+                <button 
+                  onClick={() => {
+                    if (deleteConfirmId) {
+                      onDeleteLog(deleteConfirmId);
+                      setDeleteConfirmId(null);
+                      alert('훈련 기록이 삭제되었습니다.');
+                    }
+                  }}
+                  className="flex-1 px-4 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-lg shadow-rose-200 transition-all active:scale-95"
+                >
+                  삭제
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

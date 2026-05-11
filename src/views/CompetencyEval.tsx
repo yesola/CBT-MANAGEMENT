@@ -22,6 +22,11 @@ import { Trainee, CompetencyEvaluation } from '../types';
 interface CompetencyEvalProps {
   trainee: Trainee;
   onAddEvaluation?: (evaluation: Omit<CompetencyEvaluation, 'id'>) => void;
+  onUpdateEvaluation?: (id: string, evaluation: Omit<CompetencyEvaluation, 'id'>) => void;
+  viewingEvaluation?: CompetencyEvaluation | null;
+  onResetViewing?: () => void;
+  draft?: any;
+  onDraftChange?: (draft: any) => void;
 }
 
 type Rating = 1 | 2 | 3 | 4; // 1: 부족, 2: 부분, 3: 만족, 4: 능통
@@ -47,19 +52,78 @@ const COMPETENCIES: CompetencyItem[] = [
   { id: 10, title: '팀워크', enTitle: 'Teamwork', description: '팀의 일원으로서 동료들과 원활하게 소통하고 지원하며 역할을 수행', icon: Users },
 ];
 
-export const CompetencyEval: React.FC<CompetencyEvalProps> = ({ trainee, onAddEvaluation }) => {
-  const [evalDate, setEvalDate] = useState(new Date().toISOString().split('T')[0]);
-  const [evaluator, setEvaluator] = useState('Lee, Seong-ho (I-082)');
-  const [ratings, setRatings] = useState<Record<number, Rating>>({});
-  const [comments, setComments] = useState<Record<number, string>>({});
-  const [overallComment, setOverallComment] = useState('');
+export const CompetencyEval: React.FC<CompetencyEvalProps> = ({ 
+  trainee, 
+  onAddEvaluation,
+  onUpdateEvaluation,
+  viewingEvaluation,
+  onResetViewing,
+  draft,
+  onDraftChange
+}) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const isReadOnly = !!viewingEvaluation && !isEditing;
+
+  const [evalDate, setEvalDate] = useState(viewingEvaluation?.date || draft?.evalDate || new Date().toISOString().split('T')[0]);
+  const [evaluator, setEvaluator] = useState(viewingEvaluation?.evaluator || draft?.evaluator || 'Lee, Seong-ho (I-082)');
+  
+  // Reconstruct ratings if viewing
+  const getRatingsFromEval = (ev: CompetencyEvaluation) => {
+    return ev.rawRatings || {
+      1: Math.round(ev.situationalAwareness / 25),
+      2: Math.round(ev.trafficManagement / 25),
+      3: Math.round(ev.separationConflict / 25),
+      4: Math.round(ev.communication / 25),
+      5: Math.round(ev.cooperation / 25),
+      8: Math.round(ev.selfManagement / 25),
+      6: Math.round(ev.stressManagement / 25),
+    };
+  };
+
+  const initialRatings = viewingEvaluation ? getRatingsFromEval(viewingEvaluation) : (draft?.ratings || {});
+  const [ratings, setRatings] = useState<Record<number, Rating>>(initialRatings as Record<number, Rating>);
+  const [comments, setComments] = useState<Record<number, string>>(draft?.comments || {});
+  const [overallComment, setOverallComment] = useState(viewingEvaluation?.details || draft?.overallComment || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Sync with draft prop
+  React.useEffect(() => {
+    if (!viewingEvaluation && onDraftChange) {
+      onDraftChange({
+        evalDate,
+        evaluator,
+        ratings,
+        comments,
+        overallComment
+      });
+    }
+  }, [evalDate, evaluator, ratings, comments, overallComment, viewingEvaluation]);
+
+  // Update states when viewingEvaluation changes
+  React.useEffect(() => {
+    if (viewingEvaluation) {
+      setEvalDate(viewingEvaluation.date);
+      setEvaluator(viewingEvaluation.evaluator);
+      setOverallComment(viewingEvaluation.details);
+      setRatings(getRatingsFromEval(viewingEvaluation) as Record<number, Rating>);
+      setComments({}); // We don't have per-comp comments in standard history yet but good to clear
+      setIsEditing(false);
+    } else if (draft) {
+      setEvalDate(draft.evalDate || new Date().toISOString().split('T')[0]);
+      setEvaluator(draft.evaluator || 'Lee, Seong-ho (I-082)');
+      setRatings(draft.ratings || {});
+      setComments(draft.comments || {});
+      setOverallComment(draft.overallComment || '');
+    }
+  }, [viewingEvaluation]);
+
   const handleRatingChange = (id: number, rating: Rating) => {
+    if (isReadOnly) return;
     setRatings(prev => ({ ...prev, [id]: rating }));
   };
 
   const handleCommentChange = (id: number, comment: string) => {
+    if (isReadOnly) return;
     setComments(prev => ({ ...prev, [id]: comment }));
   };
 
@@ -72,32 +136,42 @@ export const CompetencyEval: React.FC<CompetencyEvalProps> = ({ trainee, onAddEv
     // Simple calculation: scale 1-4 to 25-100
     const scale = (r: number) => r * 25;
     
-    const newEvaluation: Omit<CompetencyEvaluation, 'id'> = {
+    const avgScore = Object.values(ratings).map(Number).reduce((a, b) => a + b, 0) / COMPETENCIES.length;
+    
+    let result: 'satisfactory' | 'marginal' | 'unsatisfactory' = 'satisfactory';
+    if (avgScore < 1.8) result = 'unsatisfactory';
+    else if (avgScore < 2.8) result = 'marginal';
+
+    const evaluationData: Omit<CompetencyEvaluation, 'id'> = {
       traineeId: trainee.id,
       date: evalDate,
       evaluator: evaluator,
-      score: (Object.values(ratings).map(Number).reduce((a, b) => a + b, 0) / COMPETENCIES.length),
-      result: 'satisfactory', // Simplified
-      category: 'Monthly Assessment Report',
+      score: avgScore,
+      result,
+      category: '월말 역량 평가',
       details: overallComment,
-      // Radar Chart Metrics
-      atm: scale(((ratings[2] || 0) + (ratings[3] || 0)) / 2),
-      comm: scale(((ratings[4] || 0) + (ratings[5] || 0)) / 2),
-      tech: scale(((ratings[1] || 0) + (ratings[6] || 0)) / 2),
-      nav: scale(ratings[7] || 0),
-      ops: scale(((ratings[8] || 0) + (ratings[9] || 0)) / 2),
-      // Progress Bar Metrics
+      rawRatings: ratings,
+      // Radar Chart Metrics (6 core competencies)
       situationalAwareness: scale(ratings[1] || 0),
+      trafficManagement: scale(ratings[2] || 0),
+      separationConflict: scale(ratings[3] || 0),
       communication: scale(ratings[4] || 0),
+      cooperation: scale(ratings[5] || 0),
+      selfManagement: scale(ratings[8] || 0),
+      // Progress Bar Metrics (reusing or extras)
       proceduralAccuracy: scale(ratings[3] || 0),
-      stressManagement: scale(ratings[6] || 0),
-      cooperation: scale(ratings[5] || 0)
+      stressManagement: scale(ratings[6] || 0)
     };
 
     setTimeout(() => {
-      onAddEvaluation?.(newEvaluation);
+      if (viewingEvaluation && isEditing) {
+        onUpdateEvaluation?.(viewingEvaluation.id, evaluationData);
+        alert('평가가 성공적으로 수정되었습니다.');
+      } else {
+        onAddEvaluation?.(evaluationData);
+        alert('평가가 성공적으로 저장되어 대시보드에 반영되었습니다.');
+      }
       setIsSubmitting(false);
-      alert('평가가 성공적으로 저장되어 대시보드에 반영되었습니다.');
     }, 800);
   };
 
@@ -114,12 +188,34 @@ export const CompetencyEval: React.FC<CompetencyEvalProps> = ({ trainee, onAddEv
       <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <h2 className="text-3xl font-bold text-slate-900 tracking-tight">월간 역량 평가</h2>
-            <p className="text-slate-500 mt-2">운영 능력 및 전문적 행동에 대한 종합적인 검토입니다.</p>
+            <h2 className="text-3xl font-bold text-slate-900 tracking-tight">
+              {viewingEvaluation ? (isEditing ? '역량 평가 수정' : `역량 평가 조회 (${evalDate})`) : '월간 역량 평가'}
+            </h2>
+            <p className="text-slate-500 mt-2">
+              {viewingEvaluation ? (isEditing ? '평가 내용을 수정하고 저장하세요.' : '해당 일자에 완료된 평가 기록입니다.') : '운영 능력 및 전문적 행동에 대한 종합적인 검토입니다.'}
+            </p>
           </div>
-          <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-center min-w-[180px]">
-             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">평가 기간</p>
-             <p className="text-lg font-bold text-slate-800">2026년 5월</p>
+          <div className="flex gap-4">
+            {viewingEvaluation && !isEditing && (
+              <button 
+                onClick={() => setIsEditing(true)}
+                className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition-all shadow-md active:scale-95"
+              >
+                수정하기
+              </button>
+            )}
+            {viewingEvaluation && (
+              <button 
+                onClick={onResetViewing}
+                className="bg-white border border-slate-200 text-slate-600 px-6 py-3 rounded-xl font-bold text-sm hover:bg-slate-50 transition-all border-b-2"
+              >
+                뒤로 가기
+              </button>
+            )}
+            <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-center min-w-[150px]">
+               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">상태</p>
+               <p className="text-lg font-bold text-slate-800">{viewingEvaluation ? (isEditing ? '수정 중' : '평가 완료') : '작성 중'}</p>
+            </div>
           </div>
         </div>
 
@@ -137,8 +233,12 @@ export const CompetencyEval: React.FC<CompetencyEvalProps> = ({ trainee, onAddEv
               <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input 
                 value={evaluator}
+                readOnly={isReadOnly}
                 onChange={(e) => setEvaluator(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-lg pl-11 pr-4 py-3 font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 transition-all"
+                className={cn(
+                  "w-full border rounded-lg pl-11 pr-4 py-3 font-semibold text-slate-800 transition-all",
+                  isReadOnly ? "bg-slate-50 border-slate-200 cursor-default" : "bg-white border-slate-200 focus:ring-2 focus:ring-blue-500"
+                )}
               />
             </div>
           </div>
@@ -149,8 +249,12 @@ export const CompetencyEval: React.FC<CompetencyEvalProps> = ({ trainee, onAddEv
               <input 
                 type="date"
                 value={evalDate}
+                readOnly={isReadOnly}
                 onChange={(e) => setEvalDate(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-lg pl-11 pr-4 py-3 font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 transition-all"
+                className={cn(
+                  "w-full border rounded-lg pl-11 pr-4 py-3 font-semibold text-slate-800 transition-all",
+                  isReadOnly ? "bg-slate-50 border-slate-200 cursor-default" : "bg-white border-slate-200 focus:ring-2 focus:ring-blue-500"
+                )}
               />
             </div>
           </div>
@@ -212,10 +316,14 @@ export const CompetencyEval: React.FC<CompetencyEvalProps> = ({ trainee, onAddEv
                        <MessageSquare className="w-4 h-4 text-slate-300 group-focus-within:text-blue-400 transition-colors" />
                     </div>
                     <textarea 
-                      placeholder={`${comp.title} 관련 의견 입력...`}
+                      placeholder={isReadOnly ? "작성된 의견 없음" : `${comp.title} 관련 의견 입력...`}
                       value={comments[comp.id] || ''}
+                      readOnly={isReadOnly}
                       onChange={(e) => handleCommentChange(comp.id, e.target.value)}
-                      className="w-full bg-slate-50/80 border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:ring-2 focus:ring-blue-500/10 focus:border-blue-300 focus:bg-white transition-all min-h-[80px]"
+                      className={cn(
+                        "w-full border rounded-xl py-2.5 pl-10 pr-4 text-sm transition-all min-h-[80px]",
+                        isReadOnly ? "bg-slate-50 border-slate-200 cursor-default" : "bg-slate-50/80 border-slate-200 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-300 focus:bg-white"
+                      )}
                     />
                   </div>
                 </div>
@@ -232,36 +340,42 @@ export const CompetencyEval: React.FC<CompetencyEvalProps> = ({ trainee, onAddEv
           종합 교관 의견
         </h3>
         <textarea 
-          placeholder="이번 달의 종합적인 피드백을 입력하세요..."
+          placeholder={isReadOnly ? "작성된 종합 의견 없음" : "이번 달의 종합적인 피드백을 입력하세요..."}
           value={overallComment}
+          readOnly={isReadOnly}
           onChange={(e) => setOverallComment(e.target.value)}
-          className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-6 text-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all min-h-[200px]"
+          className={cn(
+            "w-full border rounded-2xl p-6 text-slate-700 transition-all min-h-[200px]",
+            isReadOnly ? "bg-slate-50 border-slate-200 cursor-default" : "bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+          )}
         />
         
         {/* Validation Warning */}
-        {Object.keys(ratings).length < COMPETENCIES.length && (
+        {!isReadOnly && Object.keys(ratings).length < COMPETENCIES.length && (
           <div className="mt-6 flex items-center gap-3 text-amber-600 bg-amber-50 p-4 rounded-xl border border-amber-100">
             <AlertCircle className="w-5 h-5 flex-shrink-0" />
             <p className="text-sm font-semibold">제출하기 전에 10가지 역량 등급을 모두 완료해 주세요.</p>
           </div>
         )}
 
-        <div className="flex justify-end gap-4 mt-10 pb-4">
-          <button className="px-8 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition-all">
-            임시 저장
-          </button>
-          <button 
-            onClick={handleSubmit}
-            disabled={isSubmitting || Object.keys(ratings).length < COMPETENCIES.length}
-            className={cn(
-              "px-10 py-3 rounded-xl font-bold text-sm shadow-xl flex items-center gap-2 transition-all active:scale-95",
-              isSubmitting ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-blue-600 text-white hover:bg-blue-700"
-            )}
-          >
-            <Save className="w-5 h-5" />
-            {isSubmitting ? "평가 저장 중..." : "최종 평가 저장"}
-          </button>
-        </div>
+        {!isReadOnly && (
+          <div className="flex justify-end gap-4 mt-10 pb-4">
+            <button className="px-8 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition-all">
+              임시 저장
+            </button>
+            <button 
+              onClick={handleSubmit}
+              disabled={isSubmitting || Object.keys(ratings).length < COMPETENCIES.length}
+              className={cn(
+                "px-10 py-3 rounded-xl font-bold text-sm shadow-xl flex items-center gap-2 transition-all active:scale-95",
+                isSubmitting ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-blue-600 text-white hover:bg-blue-700"
+              )}
+            >
+              <Save className="w-5 h-5" />
+              {isSubmitting ? "평가 저장 중..." : "최종 평가 저장"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
