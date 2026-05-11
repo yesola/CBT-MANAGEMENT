@@ -1,0 +1,6 @@
+{
+  "name": "훈련관제사 관리 시스템",
+  "description": "항공 관제사 훈련생들의 훈련 시간, 역량 평가 및 진척도를 관리하는 종합 관제 훈련 플랫폼입니다.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
