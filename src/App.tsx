@@ -6,30 +6,69 @@ import { TraineeList } from './views/TraineeList';
 import { TrainingLog } from './views/TrainingLog';
 import { CompetencyEval } from './views/CompetencyEval';
 import { Archive } from './views/Archive';
-import { MOCK_TRAINEES, MOCK_HISTORY, MOCK_EVALUATIONS } from './constants';
-import { View, Trainee, TrainingLogEntry, CompetencyEvaluation } from './types';
+import { MOCK_TRAINEES, MOCK_HISTORY, MOCK_EVALUATIONS, PROFILE_AVATARS, MOCK_ARCHIVE_DOCS } from './constants';
+import { View, Trainee, TrainingLogEntry, CompetencyEvaluation, ArchiveDocument } from './types';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
   const [trainees, setTrainees] = useState<Trainee[]>(() => {
-    const saved = localStorage.getItem('trainees');
-    return saved ? JSON.parse(saved) : MOCK_TRAINEES;
+    try {
+      const saved = localStorage.getItem('trainees');
+      return saved ? JSON.parse(saved) : MOCK_TRAINEES;
+    } catch (e) {
+      console.error('Error loading trainees', e);
+      return MOCK_TRAINEES;
+    }
   });
+
   const [history, setHistory] = useState<TrainingLogEntry[]>(() => {
-    const saved = localStorage.getItem('history');
-    return saved ? JSON.parse(saved) : MOCK_HISTORY;
+    try {
+      const saved = localStorage.getItem('history');
+      return saved ? JSON.parse(saved) : MOCK_HISTORY;
+    } catch (e) {
+      console.error('Error loading history', e);
+      return MOCK_HISTORY;
+    }
   });
+
   const [evaluations, setEvaluations] = useState<CompetencyEvaluation[]>(() => {
-    const saved = localStorage.getItem('evaluations');
-    return saved ? JSON.parse(saved) : MOCK_EVALUATIONS;
+    try {
+      const saved = localStorage.getItem('evaluations');
+      return saved ? JSON.parse(saved) : MOCK_EVALUATIONS;
+    } catch (e) {
+      console.error('Error loading evaluations', e);
+      return MOCK_EVALUATIONS;
+    }
   });
+
+  const [archiveDocs, setArchiveDocs] = useState<ArchiveDocument[]>(() => {
+    try {
+      const saved = localStorage.getItem('archiveDocs');
+      return saved ? JSON.parse(saved) : MOCK_ARCHIVE_DOCS;
+    } catch (e) {
+      console.error('Error loading archive docs', e);
+      return MOCK_ARCHIVE_DOCS;
+    }
+  });
+
   const [currentView, setCurrentView] = useState<View>(() => {
     const saved = localStorage.getItem('currentView');
     return (saved as View) || 'trainees';
   });
+
   const [selectedTraineeId, setSelectedTraineeId] = useState<string>(() => {
     const saved = localStorage.getItem('selectedTraineeId');
-    return saved || (trainees.length > 0 ? trainees[0].id : '');
+    if (saved) return saved;
+    
+    // Fallback to first available trainee
+    const savedTrainees = localStorage.getItem('trainees');
+    if (savedTrainees) {
+      try {
+        const parsed = JSON.parse(savedTrainees);
+        if (parsed.length > 0) return parsed[0].id;
+      } catch (e) {}
+    }
+    return MOCK_TRAINEES.length > 0 ? MOCK_TRAINEES[0].id : '';
   });
   const [viewingEvaluation, setViewingEvaluation] = useState<CompetencyEvaluation | null>(null);
   const [evaluationDraft, setEvaluationDraft] = useState<any>(null);
@@ -46,6 +85,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('evaluations', JSON.stringify(evaluations));
   }, [evaluations]);
+
+  useEffect(() => {
+    localStorage.setItem('archiveDocs', JSON.stringify(archiveDocs));
+  }, [archiveDocs]);
 
   useEffect(() => {
     localStorage.setItem('currentView', currentView);
@@ -70,18 +113,21 @@ export default function App() {
   };
 
   const handleAddTrainee = (newTraineeData: Omit<Trainee, 'id' | 'avatar' | 'progress' | 'status' | 'lastSession'>) => {
+    // Pick a random avatar from the list
+    const allAvatars = [...PROFILE_AVATARS.male, ...PROFILE_AVATARS.female];
+    const randomAvatar = allAvatars[Math.floor(Math.random() * allAvatars.length)];
+
     const newTrainee: Trainee = {
       ...newTraineeData,
       id: `t-${Date.now()}`,
-      avatar: `https://images.unsplash.com/photo-${1500000000000 + Math.floor(Math.random() * 1000000)}?auto=format&fit=crop&q=80&w=150`,
+      avatar: randomAvatar,
       progress: 0,
       status: 'active',
       lastSession: 'Never',
-      unit: '', // Default values since the form doesn't have these yet
-      profileRemarks: '신규 등록',
-      joinedDate: newTraineeData.joinedDate
+      unit: '',
+      profileRemarks: '신규 등록'
     };
-    setTrainees([...trainees, newTrainee]);
+    setTrainees(prev => [...prev, newTrainee]);
   };
 
   const handleAddLog = (newLog: Omit<TrainingLogEntry, 'id'>) => {
@@ -89,15 +135,15 @@ export default function App() {
       ...newLog,
       id: `h-${Date.now()}`
     };
-    setHistory([log, ...history]);
+    setHistory(prev => [log, ...prev]);
   };
 
   const handleUpdateLog = (id: string, updatedLog: Omit<TrainingLogEntry, 'id'>) => {
-    setHistory(history.map(log => log.id === id ? { ...updatedLog, id } : log));
+    setHistory(prev => prev.map(log => log.id === id ? { ...updatedLog, id } : log));
   };
 
   const handleDeleteLog = (id: string) => {
-    setHistory(history.filter(log => log.id !== id));
+    setHistory(prev => prev.filter(log => log.id !== id));
   };
 
   const handleAddEvaluation = (newEval: Omit<CompetencyEvaluation, 'id'>) => {
@@ -105,7 +151,7 @@ export default function App() {
       ...newEval,
       id: `e-${Date.now()}`
     };
-    setEvaluations([evaluation, ...evaluations]);
+    setEvaluations(prev => [evaluation, ...prev]);
     setCurrentView('dashboard');
   };
 
@@ -116,7 +162,19 @@ export default function App() {
   };
 
   const handleUpdateTrainee = (id: string, updatedInfo: Partial<Trainee>) => {
-    setTrainees(trainees.map(t => t.id === id ? { ...t, ...updatedInfo } : t));
+    setTrainees(prev => prev.map(t => t.id === id ? { ...t, ...updatedInfo } : t));
+  };
+
+  const handleAddArchiveDoc = (newDoc: Omit<ArchiveDocument, 'id'>) => {
+    const doc: ArchiveDocument = {
+      ...newDoc,
+      id: `d-${Date.now()}`
+    };
+    setArchiveDocs(prev => [doc, ...prev]);
+  };
+
+  const handleDeleteArchiveDoc = (id: string) => {
+    setArchiveDocs(prev => prev.filter(doc => doc.id !== id));
   };
 
   const renderView = () => {
@@ -170,7 +228,13 @@ export default function App() {
           />
         );
       case 'archive':
-        return <Archive />;
+        return (
+          <Archive 
+            docs={archiveDocs} 
+            onAddDoc={handleAddArchiveDoc} 
+            onDeleteDoc={handleDeleteArchiveDoc} 
+          />
+        );
       case 'settings':
         return (
           <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4">

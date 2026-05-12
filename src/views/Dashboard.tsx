@@ -218,7 +218,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
       });
       setIsSubmitting(false);
       setShowProfileModal(false);
-      alert('프로필이 성공적으로 수정되었습니다!');
     }, 600);
   };
 
@@ -247,10 +246,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       if (editingLogId) {
         onUpdateLog(editingLogId, logData);
-        alert('훈련 기록이 성공적으로 수정되었습니다!');
       } else {
         onAddLog(logData);
-        alert('훈련 기록이 성공적으로 추가되었습니다!');
       }
       
       setIsSubmitting(false);
@@ -280,6 +277,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 alt={trainee.name} 
                 className="w-full h-full rounded-xl object-cover"
                 referrerPolicy="no-referrer"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(trainee.name)}&background=random&color=fff`;
+                }}
               />
             </div>
           </div>
@@ -386,20 +386,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
           </div>
           
-          <div className="mt-8 pt-6 border-t border-slate-50 space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">지난달 대비</span>
-              <span className={cn(
-                "text-xs font-bold flex items-center gap-1",
-                growthPercent >= 0 ? "text-emerald-500" : "text-rose-500"
-              )}>
-                {growthPercent >= 0 ? <PlusCircle className="w-3 h-3" /> : <ChevronRight className="w-3 h-3 rotate-90" />}
-                {Math.abs(growthPercent).toFixed(1)}% {growthPercent >= 0 ? '증가' : '감소'}
-              </span>
-            </div>
-          </div>
-          
-
         </div>
       </div>
 
@@ -515,8 +501,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <span className="text-xs font-bold text-slate-900">{log.date}</span>
                     <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">{log.station}</span>
                   </div>
-                  <p className="text-sm font-semibold text-slate-700">{log.topic}</p>
-                  <p className="text-xs text-slate-400 mt-1">Instructor: {log.instructor}</p>
+                  <p className="text-sm font-bold text-slate-800">{log.station}</p>
+                  <p className="text-xs text-slate-500 mt-1">{log.topic} • {log.instructor}</p>
                   
                   <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button 
@@ -741,7 +727,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             profileFormData.avatar === url ? "border-blue-500 scale-110 shadow-md shadow-blue-100" : "border-transparent opacity-60 hover:opacity-100"
                           )}
                         >
-                          <img src={url} className="w-full h-full object-cover rounded-lg" referrerPolicy="no-referrer" />
+                          <img 
+                            src={url} 
+                            className="w-full h-full object-cover rounded-lg" 
+                            referrerPolicy="no-referrer" 
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${idx}&background=random&color=fff`;
+                            }}
+                          />
                         </button>
                       ))}
                     </div>
@@ -760,7 +753,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             profileFormData.avatar === url ? "border-blue-500 scale-110 shadow-md shadow-blue-100" : "border-transparent opacity-60 hover:opacity-100"
                           )}
                         >
-                          <img src={url} className="w-full h-full object-cover rounded-lg" referrerPolicy="no-referrer" />
+                          <img 
+                            src={url} 
+                            className="w-full h-full object-cover rounded-lg" 
+                            referrerPolicy="no-referrer" 
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${idx}&background=random&color=fff`;
+                            }}
+                          />
                         </button>
                       ))}
                     </div>

@@ -18,38 +18,13 @@ import {
 import { ArchiveDocument } from '../types';
 import { cn } from '../lib/utils';
 
-const MOCK_DOCS: ArchiveDocument[] = [
-  {
-    id: '1',
-    title: '2023-11 역량 평가 스캔본',
-    uploadDate: '2023-11-15',
-    instructor: 'Capt. Kim Do-yun',
-    sector: 'APP',
-    thumbnail: 'https://images.unsplash.com/photo-1586769852044-692d6e3703f0?auto=format&fit=crop&q=80&w=400',
-    type: 'PDF'
-  },
-  {
-    id: '2',
-    title: '분기별 숙련도 체크 기록',
-    uploadDate: '2023-10-28',
-    instructor: 'Lt. Park Ji-sung',
-    sector: 'ARR',
-    thumbnail: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=400',
-    type: 'JPEG'
-  },
-  {
-    id: '3',
-    title: '비상 절차 훈련 결과서',
-    uploadDate: '2023-09-12',
-    instructor: 'Capt. Kim Do-yun',
-    sector: 'DEP',
-    thumbnail: 'https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&q=80&w=400',
-    type: 'PDF'
-  }
-];
+interface ArchiveProps {
+  docs: ArchiveDocument[];
+  onAddDoc: (doc: Omit<ArchiveDocument, 'id'>) => void;
+  onDeleteDoc: (id: string) => void;
+}
 
-export const Archive: React.FC = () => {
-  const [docs, setDocs] = useState<ArchiveDocument[]>(MOCK_DOCS);
+export const Archive: React.FC<ArchiveProps> = ({ docs, onAddDoc, onDeleteDoc }) => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedSector, setSelectedSector] = useState('All Sectors');
   const [searchQuery, setSearchQuery] = useState('');
@@ -68,7 +43,7 @@ export const Archive: React.FC = () => {
 
   const confirmDelete = () => {
     if (deleteConfirmId) {
-      setDocs(prev => prev.filter(doc => doc.id !== deleteConfirmId));
+      onDeleteDoc(deleteConfirmId);
       setDeleteConfirmId(null);
     }
   };
@@ -105,8 +80,7 @@ export const Archive: React.FC = () => {
       return;
     }
 
-    const newDoc: ArchiveDocument = {
-      id: Math.random().toString(36).substr(2, 9),
+    const newDoc: Omit<ArchiveDocument, 'id'> = {
       title: uploadTitle,
       uploadDate: new Date().toISOString().split('T')[0],
       instructor: 'Lee, Seong-ho (I-082)',
@@ -117,7 +91,7 @@ export const Archive: React.FC = () => {
       type: uploadFile.type.includes('pdf') ? 'PDF' : 'IMG'
     };
 
-    setDocs([newDoc, ...docs]);
+    onAddDoc(newDoc);
     setShowUploadModal(false);
     setUploadFile(null);
     setUploadTitle('');
@@ -136,7 +110,7 @@ export const Archive: React.FC = () => {
       {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h2 className="text-3xl font-bold text-slate-900 tracking-tight">평가 문서 자료실</h2>
+          <h2 className="text-3xl font-bold text-slate-900 tracking-tight">자료실</h2>
           <p className="text-slate-500 mt-2">과거 역량 평가 결과 및 스캔된 문서를 관리하고 검토합니다.</p>
         </div>
         <button 

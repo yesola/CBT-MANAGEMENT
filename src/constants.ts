@@ -1,4 +1,4 @@
-import { Trainee, TrainingLogEntry, Stat, CompetencyEvaluation } from './types';
+import { Trainee, TrainingLogEntry, Stat, CompetencyEvaluation, ArchiveDocument } from './types';
 
 export const MOCK_EVALUATIONS: CompetencyEvaluation[] = [
   {
@@ -81,7 +81,7 @@ export const PROFILE_AVATARS = {
     'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=150',
     'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150',
     'https://images.unsplash.com/photo-1554151228-14d9def656e4?auto=format&fit=crop&q=80&w=150',
-    'https://images.unsplash.com/photo-1531746020798-e595277bb8de?auto=format&fit=crop&q=80&w=150',
+    'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=150',
   ]
 };
 
@@ -149,6 +149,36 @@ export const DASHBOARD_STATS: Stat[] = [
   { label: '활성 세션', value: 8, change: '안정', trend: 'neutral' },
   { label: '이수율', value: '92%', change: '+3%', trend: 'up' },
   { label: '평균 평가 점수', value: 88, change: '-1', trend: 'down' },
+];
+
+export const MOCK_ARCHIVE_DOCS: ArchiveDocument[] = [
+  {
+    id: '1',
+    title: '2023-11 역량 평가 스캔본',
+    uploadDate: '2023-11-15',
+    instructor: 'Capt. Kim Do-yun',
+    sector: 'APP',
+    thumbnail: 'https://images.unsplash.com/photo-1586769852044-692d6e3703f0?auto=format&fit=crop&q=80&w=400',
+    type: 'PDF'
+  },
+  {
+    id: '2',
+    title: '분기별 숙련도 체크 기록',
+    uploadDate: '2023-10-28',
+    instructor: 'Lt. Park Ji-sung',
+    sector: 'ARR',
+    thumbnail: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=400',
+    type: 'JPEG'
+  },
+  {
+    id: '3',
+    title: '비상 절차 훈련 결과서',
+    uploadDate: '2023-09-12',
+    instructor: 'Capt. Kim Do-yun',
+    sector: 'DEP',
+    thumbnail: 'https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&q=80&w=400',
+    type: 'PDF'
+  }
 ];
 
 export const CHART_DATA = [

@@ -37,7 +37,6 @@ export const TraineeList: React.FC<TraineeListProps> = ({ trainees, onSelectTrai
       unit: '',
       profileRemarks: '신규 등록'
     });
-    alert('훈련생이 성공적으로 등록되었습니다!');
     setShowCreateModal(false);
     setFormData({
       name: '',
@@ -98,6 +97,9 @@ export const TraineeList: React.FC<TraineeListProps> = ({ trainees, onSelectTrai
                     alt={trainee.name} 
                     className="w-14 h-14 rounded-xl object-cover border border-slate-100 shadow-sm"
                     referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(trainee.name)}&background=random&color=fff`;
+                    }}
                   />
                   <div className={cn(
                     "absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-white",
