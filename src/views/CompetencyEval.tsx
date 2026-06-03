@@ -360,7 +360,22 @@ export const CompetencyEval: React.FC<CompetencyEvalProps> = ({
 
         {!isReadOnly && (
           <div className="flex justify-end gap-4 mt-10 pb-4">
-            <button className="px-8 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition-all">
+            <button 
+              type="button"
+              onClick={() => {
+                if (onDraftChange) {
+                  onDraftChange({
+                    evalDate,
+                    evaluator,
+                    ratings,
+                    comments,
+                    overallComment
+                  });
+                }
+                alert('평가서 초안이 로컬 저장소에 안전하게 임시 저장되었습니다.');
+              }}
+              className="px-8 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-all border border-slate-200"
+            >
               임시 저장
             </button>
             <button 
