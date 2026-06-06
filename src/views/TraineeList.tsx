@@ -3,13 +3,13 @@ import { Trainee } from '../types';
 import { 
   Search, 
   Filter, 
-  MoreVertical, 
   Clock,
   ExternalLink,
   Plus,
   X,
   Info,
-  Calendar
+  Calendar,
+  Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
@@ -18,10 +18,12 @@ interface TraineeListProps {
   trainees: Trainee[];
   onSelectTrainee: (id: string) => void;
   onAddTrainee: (trainee: Omit<Trainee, 'id' | 'avatar' | 'progress' | 'status' | 'lastSession'>) => void;
+  onDeleteTrainee: (id: string) => void;
 }
 
-export const TraineeList: React.FC<TraineeListProps> = ({ trainees, onSelectTrainee, onAddTrainee }) => {
+export const TraineeList: React.FC<TraineeListProps> = ({ trainees, onSelectTrainee, onAddTrainee, onDeleteTrainee }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [deleteTraineeConfirm, setDeleteTraineeConfirm] = useState<{ id: string, name: string } | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     dob: '',
@@ -106,8 +108,15 @@ export const TraineeList: React.FC<TraineeListProps> = ({ trainees, onSelectTrai
                     trainee.status === 'active' ? "bg-emerald-500" : "bg-slate-300"
                   )} />
                 </div>
-                <button className="text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-50 rounded-lg transition-all">
-                  <MoreVertical className="w-5 h-5" />
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteTraineeConfirm({ id: trainee.id, name: trainee.name });
+                  }}
+                  className="text-slate-400 hover:text-rose-600 p-1.5 hover:bg-rose-50 rounded-lg transition-all group/delete"
+                  title="훈련생 삭제"
+                >
+                  <Trash2 className="w-5 h-5 group-hover/delete:scale-105 transition-transform" />
                 </button>
               </div>
 
@@ -204,6 +213,48 @@ export const TraineeList: React.FC<TraineeListProps> = ({ trainees, onSelectTrai
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {deleteTraineeConfirm && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden border border-slate-200"
+            >
+              <div className="p-8 text-center">
+                <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Trash2 className="w-8 h-8 text-rose-500" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-900">훈련생 프로필 삭제</h3>
+                <p className="text-sm text-slate-500 mt-2">
+                  정말로 <span className="font-bold text-slate-800">'{deleteTraineeConfirm.name}'</span> 훈련생을 삭제하시겠습니까?<br />
+                  해당 훈련생과 관련된 모든 훈련 기록, 역량 평가 자료 등의 데이터가 전부 삭제되며 복구할 수 없습니다.
+                </p>
+              </div>
+              <div className="p-6 bg-slate-50 flex gap-3">
+                <button 
+                  onClick={() => setDeleteTraineeConfirm(null)}
+                  className="flex-1 px-4 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition-all text-sm"
+                >
+                  취소
+                </button>
+                <button 
+                  onClick={() => {
+                    onDeleteTrainee(deleteTraineeConfirm.id);
+                    setDeleteTraineeConfirm(null);
+                  }}
+                  className="flex-1 px-4 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-lg shadow-rose-200 transition-all active:scale-95 text-sm"
+                >
+                  삭제
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
