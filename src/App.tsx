@@ -38,17 +38,7 @@ export default function App() {
 
   const [selectedTraineeId, setSelectedTraineeId] = useState<string>(() => {
     const saved = localStorage.getItem('selectedTraineeId');
-    if (saved) return saved;
-    
-    // Fallback to first available trainee
-    const savedTrainees = localStorage.getItem('trainees');
-    if (savedTrainees) {
-      try {
-        const parsed = JSON.parse(savedTrainees);
-        if (parsed.length > 0) return parsed[0].id;
-      } catch (e) {}
-    }
-    return MOCK_TRAINEES.length > 0 ? MOCK_TRAINEES[0].id : '';
+    return saved || '';
   });
   const [viewingEvaluation, setViewingEvaluation] = useState<CompetencyEvaluation | null>(null);
   const [evaluationDraft, setEvaluationDraft] = useState<any>(() => {
@@ -170,6 +160,23 @@ export default function App() {
     setTrainees(prev => prev.map(t => t.id === id ? { ...t, ...updatedInfo } : t));
   };
 
+  const handleDeleteTrainee = (id: string) => {
+    setTrainees(prev => {
+      const remaining = prev.filter(t => t.id !== id);
+      if (selectedTraineeId === id) {
+        if (remaining.length > 0) {
+          setSelectedTraineeId(remaining[0].id);
+        } else {
+          setSelectedTraineeId('');
+        }
+      }
+      return remaining;
+    });
+    // Cascade-delete related training logs and evaluations
+    setHistory(prev => prev.filter(h => h.traineeId !== id));
+    setEvaluations(prev => prev.filter(e => e.traineeId !== id));
+  };
+
   const handleAddArchiveDoc = (newDoc: Omit<ArchiveDocument, 'id'>) => {
     const doc: ArchiveDocument = {
       ...newDoc,
@@ -181,6 +188,18 @@ export default function App() {
   const handleDeleteArchiveDoc = (id: string) => {
     setArchiveDocs(prev => prev.filter(doc => doc.id !== id));
   };
+
+  // ── 클라우드에서 불러오는 중에는 로딩 화면 표시 ──
+  if (!loaded) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-slate-200 border-t-[#0e5c8e] rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-500 text-sm font-medium">데이터를 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
 
   const renderView = () => {
     switch (currentView) {
@@ -213,7 +232,7 @@ export default function App() {
           />
         );
       case 'trainees':
-        return <TraineeList trainees={trainees} onSelectTrainee={handleSelectTrainee} onAddTrainee={handleAddTrainee} />;
+        return <TraineeList trainees={trainees} onSelectTrainee={handleSelectTrainee} onAddTrainee={handleAddTrainee} onDeleteTrainee={handleDeleteTrainee} />;
       case 'evaluation':
         return (
           <CompetencyEval 
@@ -255,7 +274,7 @@ export default function App() {
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
               <h3 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
                 <BarChart3 className="w-5 h-5 text-slate-500" />
-                로컬 저장소 통계
+                저장소 통계
               </h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
@@ -333,7 +352,7 @@ export default function App() {
                   </div>
                   <h4 className="font-bold text-base text-slate-800">데이터 가져오기 (복원)</h4>
                   <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                    과거에 내려받은 백업 파일(`.json`)을 시스템 상으로 불려와 로션에 그대로 덮어씁니다. 가져오는 즉시 데이터가 복구 및 반영됩니다.
+                    과거에 내려받은 백업 파일(`.json`)을 시스템 상으로 불러와 현재 데이터에 그대로 덮어씁니다. 가져오는 즉시 데이터가 복구 및 반영됩니다.
                   </p>
                 </div>
                 <div className="relative mt-4">
@@ -361,7 +380,7 @@ export default function App() {
                               }
                               alert('전체 데이터 백업 복원이 완료되었습니다!');
                             } else {
-                              alert('올바르지 않은 백업 덤프 양식입니다.');
+                              alert('올바르지 않은 백업 양식입니다.');
                             }
                           } catch (err) {
                             alert('가져온 JSON 파일을 파싱하는 데 실패했습니다.');
@@ -388,14 +407,13 @@ export default function App() {
                   </div>
                   <h4 className="font-bold text-base text-slate-800">모든 정보 초기화</h4>
                   <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                    로컬 스토리지에 캐시 등록된 모든 비정형 일지 내역과 관제사 등록 데이터 및 교육 자료를 통째로 청소하고 순수 기본 데모 빌드로 회귀합니다.
+                    저장된 모든 훈련 일지 내역과 관제사 등록 데이터 및 교육 자료를 통째로 비우고 순수 기본 데모 빌드로 회귀합니다.
                   </p>
                 </div>
                 <button
                   onClick={() => {
                     const confirmReset = window.confirm('⚠️ 주의: 정말로 모든 관제 세션 결과 및 훈련생 로그를 완전 삭제하시겠습니까? 지워진 후에는 이전으로 복구할 수 없습니다.');
                     if (confirmReset) {
-                      localStorage.clear();
                       setTrainees(MOCK_TRAINEES);
                       setHistory(MOCK_HISTORY);
                       setEvaluations(MOCK_EVALUATIONS);
@@ -420,18 +438,6 @@ export default function App() {
         return <Dashboard />;
     }
   };
-
-  // ── 클라우드에서 불러오는 중에는 로딩 화면 표시 ──
-  if (!loaded) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <div className="text-center">
-          <div className="w-10 h-10 border-4 border-slate-200 border-t-[#0e5c8e] rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-500 text-sm font-medium">데이터를 불러오는 중...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex min-h-screen bg-slate-50">
