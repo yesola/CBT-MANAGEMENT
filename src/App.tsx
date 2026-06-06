@@ -9,6 +9,7 @@ import { Archive } from './views/Archive';
 import { MOCK_TRAINEES, MOCK_HISTORY, MOCK_EVALUATIONS, PROFILE_AVATARS, MOCK_ARCHIVE_DOCS } from './constants';
 import { View, Trainee, TrainingLogEntry, CompetencyEvaluation, ArchiveDocument } from './types';
 import { motion, AnimatePresence } from 'motion/react';
+import { loadData, saveData } from './lib/storage';
 import { 
   Database, 
   Download, 
@@ -23,45 +24,12 @@ import {
 } from 'lucide-react';
 
 export default function App() {
-  const [trainees, setTrainees] = useState<Trainee[]>(() => {
-    try {
-      const saved = localStorage.getItem('trainees');
-      return saved ? JSON.parse(saved) : MOCK_TRAINEES;
-    } catch (e) {
-      console.error('Error loading trainees', e);
-      return MOCK_TRAINEES;
-    }
-  });
-
-  const [history, setHistory] = useState<TrainingLogEntry[]>(() => {
-    try {
-      const saved = localStorage.getItem('history');
-      return saved ? JSON.parse(saved) : MOCK_HISTORY;
-    } catch (e) {
-      console.error('Error loading history', e);
-      return MOCK_HISTORY;
-    }
-  });
-
-  const [evaluations, setEvaluations] = useState<CompetencyEvaluation[]>(() => {
-    try {
-      const saved = localStorage.getItem('evaluations');
-      return saved ? JSON.parse(saved) : MOCK_EVALUATIONS;
-    } catch (e) {
-      console.error('Error loading evaluations', e);
-      return MOCK_EVALUATIONS;
-    }
-  });
-
-  const [archiveDocs, setArchiveDocs] = useState<ArchiveDocument[]>(() => {
-    try {
-      const saved = localStorage.getItem('archiveDocs');
-      return saved ? JSON.parse(saved) : MOCK_ARCHIVE_DOCS;
-    } catch (e) {
-      console.error('Error loading archive docs', e);
-      return MOCK_ARCHIVE_DOCS;
-    }
-  });
+  // ── 클라우드(Supabase)에서 불러오기 전까지는 빈 상태로 시작 ──
+  const [trainees, setTrainees] = useState<Trainee[]>([]);
+  const [history, setHistory] = useState<TrainingLogEntry[]>([]);
+  const [evaluations, setEvaluations] = useState<CompetencyEvaluation[]>([]);
+  const [archiveDocs, setArchiveDocs] = useState<ArchiveDocument[]>([]);
+  const [loaded, setLoaded] = useState(false); // 클라우드 로딩 완료 여부
 
   const [currentView, setCurrentView] = useState<View>(() => {
     const saved = localStorage.getItem('currentView');
@@ -94,21 +62,30 @@ export default function App() {
   });
   const mainRef = useRef<HTMLElement>(null);
 
+  // 앱이 처음 켜질 때 Supabase에서 데이터 불러오기
   useEffect(() => {
-    localStorage.setItem('trainees', JSON.stringify(trainees));
-  }, [trainees]);
+    (async () => {
+      const t = await loadData<Trainee[]>('trainees', MOCK_TRAINEES);
+      const h = await loadData<TrainingLogEntry[]>('history', MOCK_HISTORY);
+      const ev = await loadData<CompetencyEvaluation[]>('evaluations', MOCK_EVALUATIONS);
+      const ar = await loadData<ArchiveDocument[]>('archiveDocs', MOCK_ARCHIVE_DOCS);
+      setTrainees(t);
+      setHistory(h);
+      setEvaluations(ev);
+      setArchiveDocs(ar);
+      // 선택된 훈련생이 목록에 없으면 첫 번째로 맞춤
+      setSelectedTraineeId(prev =>
+        t.some(x => x.id === prev) ? prev : (t.length > 0 ? t[0].id : '')
+      );
+      setLoaded(true);
+    })();
+  }, []);
 
-  useEffect(() => {
-    localStorage.setItem('history', JSON.stringify(history));
-  }, [history]);
-
-  useEffect(() => {
-    localStorage.setItem('evaluations', JSON.stringify(evaluations));
-  }, [evaluations]);
-
-  useEffect(() => {
-    localStorage.setItem('archiveDocs', JSON.stringify(archiveDocs));
-  }, [archiveDocs]);
+  // ── 데이터가 바뀔 때마다 Supabase에 저장 (로딩 완료 후에만) ──
+  useEffect(() => { if (loaded) saveData('trainees', trainees); }, [trainees, loaded]);
+  useEffect(() => { if (loaded) saveData('history', history); }, [history, loaded]);
+  useEffect(() => { if (loaded) saveData('evaluations', evaluations); }, [evaluations, loaded]);
+  useEffect(() => { if (loaded) saveData('archiveDocs', archiveDocs); }, [archiveDocs, loaded]);
 
   useEffect(() => {
     if (evaluationDraft) {
@@ -443,6 +420,18 @@ export default function App() {
         return <Dashboard />;
     }
   };
+
+  // ── 클라우드에서 불러오는 중에는 로딩 화면 표시 ──
+  if (!loaded) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-slate-200 border-t-[#0e5c8e] rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-500 text-sm font-medium">데이터를 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-slate-50">
